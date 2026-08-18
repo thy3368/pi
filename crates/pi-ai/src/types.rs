@@ -27,17 +27,22 @@ pub enum ThinkingLevel {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
+/// 消息中的内容块，可承载文本、思考、图片或工具调用。
 pub enum Content {
+    /// 普通文本内容。
     #[serde(rename = "text")]
     Text { text: String },
+    /// 模型推理或思考内容，以及可选签名。
     #[serde(rename = "thinking")]
     Thinking {
         thinking: String,
         #[serde(skip_serializing_if = "Option::is_none", default)]
         thinking_signature: Option<String>,
     },
+    /// 图片数据及其 MIME 类型。
     #[serde(rename = "image")]
     Image { data: String, mime_type: String },
+    /// 模型请求调用工具，包含调用 id、工具名和参数。
     #[serde(rename = "toolCall")]
     ToolCall {
         id: String,
@@ -148,16 +153,25 @@ pub enum Message {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Provider 返回的一条 assistant 消息。
 pub struct AssistantMessage {
+    /// 本轮 assistant 输出的内容块列表。
     pub content: Vec<Content>,
+    /// 来源 API 标识。
     pub api: String,
+    /// 服务商标识。
     pub provider: String,
+    /// 模型标识。
     pub model: String,
+    /// Token 与成本统计。
     #[serde(default)]
     pub usage: Usage,
+    /// 本轮停止原因，用于判断是否继续工具调用流程。
     pub stop_reason: StopReason,
+    /// Provider 返回的错误信息。
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub error_message: Option<String>,
+    /// 消息生成时间戳。
     #[serde(default = "now_ms")]
     pub timestamp: i64,
 }
