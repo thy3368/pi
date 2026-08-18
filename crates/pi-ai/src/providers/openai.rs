@@ -224,6 +224,7 @@ impl Provider for OpenAiProvider {
             ("content-type".to_string(), "application/json".to_string()),
         ]);
         debug_headers.extend(extra_headers.clone());
+        //log的是build_body后的
         log_provider_request(
             &model.provider,
             &model.api,
