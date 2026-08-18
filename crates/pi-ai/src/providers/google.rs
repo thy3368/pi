@@ -18,6 +18,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::error::{Error, Result};
+use crate::providers::debug::log_provider_request;
 use crate::providers::Provider;
 use crate::retry::{classify_status, parse_retry_after, with_retry, Attempt, RetryConfig};
 use crate::stream::AssistantMessageEventStream;
@@ -198,6 +199,20 @@ impl Provider for GoogleProvider {
         let body = build_body(context, options);
         let cancel = options.cancel.clone();
         let extra_headers: BTreeMap<String, String> = options.headers.clone();
+        let mut debug_headers = BTreeMap::from([
+            ("accept".to_string(), "text/event-stream".to_string()),
+            ("content-type".to_string(), "application/json".to_string()),
+        ]);
+        debug_headers.extend(extra_headers.clone());
+        log_provider_request(
+            &model.provider,
+            &model.api,
+            &model.id,
+            "POST",
+            &url,
+            &debug_headers,
+            &body,
+        );
 
         let resp = with_retry(&RetryConfig::default(), cancel.as_ref(), |_| {
             let client = self.client.clone();
