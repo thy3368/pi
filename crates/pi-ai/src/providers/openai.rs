@@ -347,7 +347,11 @@ impl Provider for OpenAiProvider {
                             let entry = tool_calls.entry(tc.index).or_default();
                             if let Some(id) = tc.id { entry.id = id; }
                             if let Some(f) = tc.function {
-                                if let Some(n) = f.name { entry.name = n; }
+                                if let Some(n) = f.name {
+                                    if !n.is_empty() {
+                                        entry.name = n;
+                                    }
+                                }
                                 if let Some(a) = f.arguments {
                                     entry.args.push_str(&a);
                                     if !tool_started.contains(&tc.index) {

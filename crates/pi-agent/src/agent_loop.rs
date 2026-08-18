@@ -57,10 +57,12 @@ pub async fn run_agent_with_history(
     let mut turn: u32 = 0;
     let mut stopped_at_turn_limit = false;
 
+    // 每一轮都是一次模型调用；上一轮产生的 tool result 会进入下一轮上下文。
     'outer: while turn < config.max_turns {
         turn += 1;
         emit(&events, AgentEvent::TurnStart);
 
+        // 用当前消息历史和工具定义构造 provider 请求上下文。
         let ctx = Context {
             system_prompt: Some(config.system_prompt.clone()),
             messages: messages.clone(),
@@ -72,6 +74,7 @@ pub async fn run_agent_with_history(
             options.reasoning = Some(config.thinking_level);
         }
 
+        // 请求一轮 assistant 输出；流式事件用于实时转发文本和思考增量。
         let mut stream = stream_simple(&config.model, &ctx, &options).await?;
 
         let mut final_message: Option<pi_ai::AssistantMessage> = None;
@@ -108,6 +111,7 @@ pub async fn run_agent_with_history(
             ));
         };
 
+        // 收集本轮最终 assistant message，并追加到 transcript。
         let assistant_message = Message::Assistant(msg.clone());
         messages.push(assistant_message.clone());
         emit(
@@ -117,6 +121,7 @@ pub async fn run_agent_with_history(
             },
         );
 
+        // 从 assistant message 中提取模型要求执行的工具调用。
         let tool_calls: Vec<(String, String, Value)> = msg
             .content
             .iter()
@@ -130,15 +135,18 @@ pub async fn run_agent_with_history(
             })
             .collect();
 
+        // 没有 tool call 表示模型已经给出最终回答；非 ToolUse 也不再进入工具阶段。
         if tool_calls.is_empty() || stop != StopReason::ToolUse {
             emit(&events, AgentEvent::TurnEnd);
             break 'outer;
         }
 
+        // StopReason::ToolUse 表示需要先执行工具，再把结果交回模型继续下一轮。
         let mut any_terminate = !tool_calls.is_empty();
         for (id, name, args) in tool_calls {
             // Permission gate (only for tools that require it, and only once
             // per name per run if the user said "allow session").
+            // 按工具名在已注册工具表里查找执行对象。
             let tool_obj = tool_index.get(&name);
             let needs_perm = tool_obj.map(|t| t.requires_permission()).unwrap_or(false)
                 && !session_allowed.contains(&name);
@@ -170,6 +178,7 @@ pub async fn run_agent_with_history(
                 }
             }
 
+            // 执行工具；未知工具和执行错误都会作为 tool result 返回给模型。
             emit(
                 &events,
                 AgentEvent::ToolExecutionStart {
@@ -205,6 +214,7 @@ pub async fn run_agent_with_history(
                     content: content.clone(),
                 },
             );
+            // 将工具结果写回消息历史，下一轮模型调用会看到这些结果。
             let tr = ToolResultMessage {
                 tool_call_id: id,
                 tool_name: name,
