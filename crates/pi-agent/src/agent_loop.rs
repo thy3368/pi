@@ -74,6 +74,8 @@ pub async fn run_agent_with_history(
             options.reasoning = Some(config.thinking_level);
         }
 
+        crate::debug::log_llm_context(turn, config, &ctx);
+
         // 请求一轮 assistant 输出；流式事件用于实时转发文本和思考增量。
         let mut stream = stream_simple(&config.model, &ctx, &options).await?;
 

@@ -7,6 +7,7 @@
 //! - Builtin tools under [`tools`]
 
 pub mod agent_loop;
+mod debug;
 pub mod error;
 pub mod tools;
 pub mod types;

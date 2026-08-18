@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 
-use serde_json::Value;
+use serde_json::{json, Value};
+
+use crate::types::{AssistantMessage, StopReason};
 pub(crate) const DEBUG_PROVIDER_REQUEST_ENV: &str = "PI_AI_DEBUG_PROVIDER_REQUEST";
 
 pub(crate) fn log_provider_request(
@@ -51,6 +53,31 @@ pub(crate) fn format_provider_request(
         redacted_headers,
         body
     )
+}
+
+pub(crate) fn log_provider_response(reason: StopReason, message: &AssistantMessage) {
+    if std::env::var(DEBUG_PROVIDER_REQUEST_ENV).as_deref() != Ok("1") {
+        return;
+    }
+
+    eprintln!("{}", format_provider_response(reason, message));
+}
+
+pub(crate) fn format_provider_response(reason: StopReason, message: &AssistantMessage) -> String {
+    let response = json!({
+        "reason": reason,
+        "provider": message.provider,
+        "api": message.api,
+        "model": message.model,
+        "content": message.content,
+        "usage": message.usage,
+        "stop_reason": message.stop_reason,
+        "error_message": message.error_message,
+        "timestamp": message.timestamp,
+    });
+    let response = serde_json::to_string_pretty(&response).unwrap_or_else(|_| response.to_string());
+
+    format!("[pi-ai provider response]\n{response}")
 }
 
 fn is_sensitive_header(name: &str) -> bool {
@@ -151,5 +178,33 @@ mod tests {
 
         assert!(output.contains("debug this exact prompt"));
         assert!(output.contains("lookup"));
+    }
+
+    #[test]
+    fn formats_provider_response() {
+        let message = AssistantMessage {
+            content: vec![crate::types::Content::Text {
+                text: "hello".to_string(),
+            }],
+            api: "chat-completions".to_string(),
+            provider: "openai".to_string(),
+            model: "gpt-test".to_string(),
+            usage: Default::default(),
+            stop_reason: StopReason::Stop,
+            error_message: None,
+            timestamp: 123,
+        };
+
+        let output = format_provider_response(StopReason::Stop, &message);
+
+        assert!(output.starts_with("[pi-ai provider response]\n"));
+        assert!(output.contains("\"reason\": \"stop\""));
+        assert!(output.contains("\"provider\": \"openai\""));
+        assert!(output.contains("\"api\": \"chat-completions\""));
+        assert!(output.contains("\"model\": \"gpt-test\""));
+        assert!(output.contains("\"content\""));
+        assert!(output.contains("\"usage\""));
+        assert!(output.contains("\"stop_reason\": \"stop\""));
+        assert!(output.contains("\"timestamp\": 123"));
     }
 }

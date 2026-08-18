@@ -45,7 +45,7 @@ async fn vokotoken_openai_compat_runs_web_fetch_tool_chain() {
         ..Default::default()
     };
 
-    let run = run_agent(&config, Message::user_text("今天最热的新闻是什么？"), None)
+    let run = run_agent(&config, Message::user_text("今天最热的新闻是什么？top1"), None)
         .await
         .expect("run_agent should complete a Vokotoken OpenAI-compatible tool-chain run");
 

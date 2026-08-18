@@ -14,7 +14,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::error::{Error, Result};
-use crate::providers::debug::log_provider_request;
+use crate::providers::debug::{log_provider_request, log_provider_response};
 use crate::providers::Provider;
 use crate::retry::{classify_status, parse_retry_after, with_retry, Attempt, RetryConfig};
 use crate::stream::AssistantMessageEventStream;
@@ -442,6 +442,7 @@ impl Provider for OpenAiResponsesProvider {
                 error_message: None,
                 timestamp: now_ms(),
             };
+            log_provider_response(stop, &message);
             yield Ok(AssistantMessageEvent::Done { reason: stop, message });
         };
 
